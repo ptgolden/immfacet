@@ -1,0 +1,28 @@
+{
+  "name": "facets.js",
+  "version": "0.0.0",
+  "description": "Faceting library for Immutable.JS collections",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "null"
+  },
+  "keywords": [
+    "browser",
+    "facets",
+    "immutable",
+    "search"
+  ],
+  "author": "Patrick Golden",
+  "license": "MIT",
+  "devDependencies": {
+    "tape": "^3.0.3"
+  },
+  "dependencies": {
+    "babel": "^5.4.7",
+    "immutable": "^3.7.3"
+  }
+}
