@@ -16,7 +16,7 @@ test('Create facets', function (t) {
   var facets = facet(sampleData);
 
   facets.addFieldFacet(['type']);
-  facets.addFieldFacet(['things']);
+  facets.addFieldFacet('things');
 
   t.deepEqual(facets.results().toJS(), {
     type: {
@@ -28,7 +28,7 @@ test('Create facets', function (t) {
       'b': [1, 2],
       'c': [2]
     }
-  });
+  }, 'should allow creating field facets.');
 });
 
 test('Nested facets', function (t) {
@@ -49,21 +49,26 @@ test('Nested facets', function (t) {
       'lollipops': [2],
       'ice': [3]
     }
-  });
+  }, 'should allow facets to be created on nested fields.');
 });
 
 test('Narrow facets', function (t) {
-  t.plan(1);
+  t.plan(2);
 
   var facets = facet(sampleData);
   facets.addFieldFacet('type');
   facets.addFieldFacet('things');
 
-  var narrowed = facets.results({filter: { id: [1, 3] }});
-  t.deepEqual(narrowed.toJS(), {
+  var narrowedByID = facets.results({filter: { id: [1, 3] }});
+  t.deepEqual(narrowedByID.toJS(), {
     type: { blargh: [1], ugh: [3] },
     things: { a: [1], b: [1] }
-  });
+  }, 'should allow a query to filter documents by property.');
+
+  var narrowedByField = facets.results({ fields: ['type'] });
+  t.deepEqual(narrowedByField.toJS(), {
+    type: { blargh: [1], ugh: [2, 3] },
+  }, 'should allow a query to select which facet fields to include.');
 });
 
 
@@ -80,7 +85,7 @@ test('Custom facet', function (t) {
       'true': [1, 3],
       'false': [2]
     }
-  });
+  }, 'should allow creating a facet based off an arbitrary function.');
 
   function idInContext(val, arr) { return arr.indexOf(val.get('id')) !== -1 }
   facets.addFacet('in_context_list', idInContext, [3]);
@@ -93,5 +98,5 @@ test('Custom facet', function (t) {
       'true': [3],
       'false': [1, 2]
     }
-  });
+  }, 'should allow creating a facet that relies on some given context.');
 })
