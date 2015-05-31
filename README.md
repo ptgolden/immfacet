@@ -46,3 +46,6 @@ facets.addFacet('playsWindInstrument', function (person) {
 facet.results({ fields: ['playsWindInstrument'] }).toJS();
 // => { playsWindInstrument: { 'true': [1, 2], 'false': [3, 4] } }
 ```
+
+# License
+MIT
