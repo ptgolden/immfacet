@@ -46,7 +46,7 @@ var facets = immfacet(Immutable.fromJS([
 
 // Simple field faceting
 facets.addFieldFacet('sessions');
-facet.results().toJS();
+facets.results().toJS();
 // => { sessions: { 'a': [1, 2, 3, 4], 'b': [1, 2, 3, 4], 'c': [1, 2] } }
 
 // Arbitrary faceting functions
@@ -55,7 +55,7 @@ facets.addFacet('playsWindInstrument', function (person) {
   return windInstruments.indexOf(person.instrument) !== -1;
 });
 
-facet.results({ fields: ['playsWindInstrument'] }).toJS();
+facets.results({ fields: ['playsWindInstrument'] }).toJS();
 // => { playsWindInstrument: { 'true': [1, 2], 'false': [3, 4] } }
 ```
 
