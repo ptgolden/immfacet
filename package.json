@@ -1,5 +1,5 @@
 {
-  "name": "facets.js",
+  "name": "immfacet",
   "version": "0.3.0",
   "description": "Faceting library for Immutable.JS collections",
   "main": "dist/facets.js",
