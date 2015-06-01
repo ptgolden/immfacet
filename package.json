@@ -2,9 +2,11 @@
   "name": "facets.js",
   "version": "0.3.0",
   "description": "Faceting library for Immutable.JS collections",
-  "main": "index.js",
+  "main": "dist/facets.js",
   "scripts": {
-    "test": "node tests.js"
+    "compile": "mkdir -p dist && babel -o dist/facets.js src/facets.js",
+    "prepublish": "npm run compile",
+    "test": "node src/tests.js"
   },
   "repository": {
     "type": "git",
