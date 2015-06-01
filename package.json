@@ -21,10 +21,10 @@
   "author": "Patrick Golden",
   "license": "MIT",
   "devDependencies": {
+    "babel": "^5.4.7",
     "tape": "^3.0.3"
   },
   "dependencies": {
-    "babel": "^5.4.7",
     "immutable": "^3.7.3"
   }
 }
