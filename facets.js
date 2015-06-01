@@ -27,31 +27,62 @@ function makeKeyedSeqByID(dataset, idField) {
   });
 }
 
-function Facets(dataset, opts) {
-  if (!(this instanceof Facets)) return new Facets(dataset, opts);
-
-  opts = opts || {};
-
-  this.facets = Immutable.Map();
-  this.idField = opts.idField || 'id';
-
-  this.dataset = makeKeyedSeqByID(dataset, this.idField);
+module.exports = function (dataset, idField) {
+  idField = idField || 'id';
+  return new FacetSet(makeKeyedSeqByID(dataset, idField), idField)
 }
 
-Facets.prototype.addFacet = function (name, reduceFn, context) {
-  this.facets = this.facets.set(name, this._makeFacetSync(reduceFn, context));
+function FacetSet(data, idField, facets, appliedFilters) {
+  this.data = data;
+  this.facets = facets || Immutable.Map();
+  this.appliedFilters = appliedFilters || Immutable.List();
+  this.idField = idField;
 }
 
-Facets.prototype.addFieldFacet = function (fieldArr, name) {
+
+/*
+ * These methods will return new FacetSet objects
+ **/
+FacetSet.prototype.addFacet = function (name, reduceFn, context) {
+  var newFacets = this.facets.set(name, this._makeFacetSync(reduceFn, context));
+  return new FacetSet(this.data, this.idField, newFacets, this.appliedFilters);
+}
+
+
+FacetSet.prototype.addFieldFacet = function (fieldArr, name) {
   if (typeof fieldArr === 'string') fieldArr = [fieldArr];
   name = name || fieldArr.join('.');
   return this.addFacet(name, datum => datum.getIn(fieldArr))
 }
 
-Facets.prototype._makeFacetSync = function (classifyingFn, context) {
+
+FacetSet.prototype.select = function (facetName, values) {
+  var facet = this.facets.get(facetName)
+    , matchedIDs
+    , newFilters
+
+  if (!facet) throw new Error('No such facet field: ' + facetName);
+
+  values = Immutable.Set(values);
+
+  matchedIDs = facet
+    .filter((docs, facetVal) => values.contains(facetVal))
+    .toSet()
+    .flatten()
+
+  newFilters = this.appliedFilters.push(Immutable.Map({ id: matchedIDs }));
+
+  return new FacetSet(this.data, this.idField, this.facets, newFilters);
+}
+
+/*
+ * Helper functions
+ ***/
+
+FacetSet.prototype._makeFacetSync = function (classifyingFn, context) {
   var facet = Immutable.OrderedMap().asMutable();
 
-  this.dataset.forEach(item => {
+  this.data.forEach(item => {
     var result = classifyingFn(item, context);
 
     if (!(result instanceof Immutable.Iterable)) result = [].concat(result);
@@ -69,7 +100,7 @@ Facets.prototype._makeFacetSync = function (classifyingFn, context) {
   return facet.asImmutable();
 }
 
-Facets.prototype.makeQuery = function (opts) {
+FacetSet.prototype.makeQuery = function (opts) {
   var QueryRecord = Immutable.Record({
     fields: this.facets.keySeq(),
     filter: null,
@@ -78,7 +109,7 @@ Facets.prototype.makeQuery = function (opts) {
   return new QueryRecord(opts);
 }
 
-Facets.prototype.results = function (opts) {
+FacetSet.prototype.getFacetValues = function (opts) {
   var query = this.makeQuery(opts)
 
   return Immutable.List(query.get('fields'))
@@ -88,32 +119,33 @@ Facets.prototype.results = function (opts) {
 }
 
 // Filter obj should be in the form { fieldName: [...possible values...]}
-Facets.prototype.applyFilters = function (filterObj, docIDSet) {
-  if (!(filterObj instanceof Immutable.Map)) {
-    filterObj = Immutable.fromJS(filterObj);
-  }
+FacetSet.prototype.applyFilters = function (filterList, docIDSet) {
+  filterList.forEach(filterObj => {
+    filterObj.forEach((possibleValues, field) => {
+      const getFieldValue = docID => this.data.getIn([docID].concat(field));
 
-  filterObj.forEach((possibleValues, field) => {
-    const getFieldValue = docID => this.dataset.getIn([docID].concat(field));
+      docIDSet = docIDSet
+        .filter(docID => possibleValues.contains(getFieldValue(docID)))
 
-    docIDSet = docIDSet
-      .filter(docID => possibleValues.contains(getFieldValue(docID)))
-
+      if (docIDSet.size === 0) return false;
+    });
     if (docIDSet.size === 0) return false;
   });
 
   return docIDSet;
 }
 
-Facets.prototype._getNarrowedFacetValues = function (opts, fieldName) {
+FacetSet.prototype._getNarrowedFacetValues = function (opts, fieldName) {
   var field = this.facets.get(fieldName)
     , filter = opts && opts.get('filter')
+    , allFilters = this.appliedFilters
 
-  if (!filter) return field;
+  if (filter) {
+    if (!(filter instanceof Immutable.Map)) filter = Immutable.fromJS(filter);
+    allFilters = allFilters.push(filter);
+  }
 
   return field
-    .map(docs => this.applyFilters(filter, docs))
+    .map(docs => this.applyFilters(allFilters, docs))
     .filter(docs => docs.size)
 }
-
-module.exports = Facets;
