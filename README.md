@@ -59,6 +59,47 @@ facets.getFacetValues({ fields: ['playsWindInstrument'] }).toJS();
 // => { playsWindInstrument: { 'true': [1, 2], 'false': [3, 4] } }
 ```
 
+# API
+## var facets = immfacet(dataset, idField='id');
+Create a new faceted collection. Dataset must be an instance of an
+Immutable.Iterable, and every object must be an Immutable.Map with an `idField`
+key present.
+
+## Creating new facet objects
+### facets.addFacet(facetName, classifyingFn)
+Create a new facet collection which will have a facet field with name
+`facetName` whose values will be determined by running `classifyingFn`
+against every item in the dataset. If `classifyingFn` returns an Array or an
+instance of an Immutable.Iterable, all of its iterable results will be taken
+as individual facet values.
+
+### facets.addFieldFacet(field)
+Shortcut for adding a new facet based on a field name in the document.
+
+### facets.select(facetFieldName, values)
+Create a new facet collection whose results must match the given `values` for
+the facet `facetFieldName`. Will throw an error if `facetFieldName` is not an
+initialized facet field.
+
+
+## Retrieving data
+### facets.getFacetValues(opts={})
+Get the values of each facet field, along with the items they are present in.
+Items are presented as IDs. The following options can be specified
+
+  * `fields`: Limit results to given facet fields
+  * `ids`: Limit results to given item IDs
+
+### facets.getSelectedFacets()
+Get the currently selected facet values for the facet collection (as set with
+`facets.select`).
+
+### facets.getMatchedIDs()
+Get the document IDs matched by the currently applied constraints.
+
+### facets.getMatchedDocuments()
+Get the full documents matched by the currently applied constraints.
+
 # TODO
   * Range faceting helper functions
   * Support for limiting results

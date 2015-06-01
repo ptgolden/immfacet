@@ -57,13 +57,11 @@ test('Narrow facets', function (t) {
     .addFieldFacet('type')
     .addFieldFacet('things')
 
-  var narrowedByID = facets.getFacetValues({
-    filter: { id: [1, 3] }
-  });
+  var narrowedByID = facets.getFacetValues({ ids: [1, 3] });
   t.deepEqual(narrowedByID.toJS(), {
     type: { blargh: [1], ugh: [3] },
     things: { a: [1], b: [1] }
-  }, 'should allow a query to filter documents by property.');
+  }, 'should allow a query to filter documents by ID.');
 
   var narrowedByField = facets.getFacetValues({ fields: ['type'] });
   t.deepEqual(narrowedByField.toJS(), {
@@ -98,8 +96,11 @@ test('Custom facet', function (t) {
 })
 
 test('Selecting values', function (t) {
-  t.plan(2);
+  t.plan(6);
   var facets = facet(sampleData).addFieldFacet('things');
+
+  t.deepEqual(facets.getMatchedIDs().toJS(), [1, 2, 3]);
+  t.deepEqual(facets.getMatchedDocuments().toJS(), sampleData.toJS());
 
   var thingsWithB = facets.select('things', ['b']);
   t.deepEqual(thingsWithB.getFacetValues().toJS(), {
@@ -108,7 +109,9 @@ test('Selecting values', function (t) {
       'b': [1, 2],
       'c': [2]
     }
-  });
+  }, 'should allow facet values to be selected');
+
+  t.deepEqual(thingsWithB.getMatchedIDs().toJS(), [1, 2]);
 
   var thingsWithBAndC = thingsWithB.select('things', ['c']);
   t.deepEqual(thingsWithBAndC.getFacetValues().toJS(), {
@@ -116,5 +119,9 @@ test('Selecting values', function (t) {
       'b': [2],
       'c': [2]
     }
-  }); 
+  }, 'should allow chaining which facets are selected');
+
+  t.deepEqual(thingsWithBAndC.getSelectedFacets().toJS(), {
+    'things': ['b', 'c']
+  }, 'should allow selected facets to be retrieved');
 });
