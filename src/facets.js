@@ -43,16 +43,15 @@ function FacetSet(data, idField, facets, appliedFilters) {
 /*
  * These methods will return new FacetSet objects
  **/
-FacetSet.prototype.addFacet = function (name, reduceFn, context) {
-  var newFacets = this.facets.set(name, this._makeFacetSync(reduceFn, context));
+FacetSet.prototype.addFacet = function (name, reduceFn, opts) {
+  var newFacets = this.facets.set(name, this._makeFacetSync(reduceFn, opts));
   return new FacetSet(this.data, this.idField, newFacets, this.appliedFilters);
 }
 
 
-FacetSet.prototype.addFieldFacet = function (fieldArr, name) {
+FacetSet.prototype.addFieldFacet = function (fieldArr, opts) {
   if (typeof fieldArr === 'string') fieldArr = [fieldArr];
-  name = name || fieldArr.join('.');
-  return this.addFacet(name, datum => datum.getIn(fieldArr))
+  return this.addFacet(fieldArr.join('.'), datum => datum.getIn(fieldArr), opts);
 }
 
 
@@ -83,15 +82,20 @@ FacetSet.prototype.select = function (facetName, values) {
  * Helper functions
  ***/
 
-FacetSet.prototype._makeFacetSync = function (classifyingFn, context) {
-  var facet = Immutable.OrderedMap().asMutable();
+FacetSet.prototype._makeFacetSync = function (classifyingFn, opts) {
+  var facet = Immutable.OrderedMap().asMutable()
+
+  opts = opts || {};
 
   this.data.forEach(item => {
-    var result = classifyingFn(item, context);
+    var result = classifyingFn(item)
+      , values
 
     if (!(result instanceof Immutable.Iterable)) result = [].concat(result);
 
-    Immutable.List(result).forEach(facetValue => {
+    values = opts.singleValue ? Immutable.List.of(result) : Immutable.List(result);
+
+    values.forEach(facetValue => {
       if (!facet.has(facetValue)) {
         facet.set(facetValue, Immutable.Set().asMutable());
       }

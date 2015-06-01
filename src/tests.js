@@ -30,6 +30,25 @@ test('Create facets', function (t) {
   }, 'should allow creating field facets.');
 });
 
+test('Single valued facets', function (t) {
+  t.plan(1);
+
+  var singleValueThingFacet = facet(sampleData)
+    .addFieldFacet('things', { singleValue: true })
+
+  var expected = Immutable.OrderedMap({
+    things: Immutable.OrderedMap([
+      [Immutable.List(['a', 'b']), Immutable.Set([1])],
+      [Immutable.List(['b', 'c']), Immutable.Set([2])],
+      [Immutable.List(), Immutable.Set([3])]
+    ])
+  });
+
+  t.ok(singleValueThingFacet.getFacetValues().equals(expected),
+      'should allow creating facets on iterable facet values that should not be iterated');
+});
+
+
 test('Nested facets', function (t) {
   t.plan(1);
 
@@ -71,28 +90,19 @@ test('Narrow facets', function (t) {
 
 
 test('Custom facet', function (t) {
-  t.plan(2);
+  t.plan(1);
 
-  var facets = facet(sampleData);
-  function idIsOdd(val) { return val.get('id') % 2 ? true : false }
+  var isOdd = facet(sampleData)
+    .addFacet('id_is_odd', function (val) {
+      return val.get('id') % 2 ? true : false;
+    });
 
-
-  var isOdd = facets.addFacet('id_is_odd', idIsOdd);
   t.deepEqual(isOdd.getFacetValues().toJS(), {
     'id_is_odd': {
       'true': [1, 3],
       'false': [2]
     }
   }, 'should allow creating a facet based off an arbitrary function.');
-
-  function idInContext(val, arr) { return arr.indexOf(val.get('id')) !== -1 }
-  var inContext = facets.addFacet('in_context_list', idInContext, [3]);
-  t.deepEqual(inContext.getFacetValues().toJS(), {
-    'in_context_list': {
-      'true': [3],
-      'false': [1, 2]
-    }
-  }, 'should allow creating a facet that relies on some given context.');
 })
 
 test('Selecting values', function (t) {

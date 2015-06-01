@@ -66,15 +66,20 @@ Immutable.Iterable, and every object must be an Immutable.Map with an `idField`
 key present.
 
 ## Creating new facet objects
-### facets.addFacet(facetName, classifyingFn)
+### facets.addFacet(facetName, classifyingFn, opts={})
 Create a new facet collection which will have a facet field with name
 `facetName` whose values will be determined by running `classifyingFn`
 against every item in the dataset. If `classifyingFn` returns an Array or an
 instance of an Immutable.Iterable, all of its iterable results will be taken
 as individual facet values.
 
-### facets.addFieldFacet(field)
-Shortcut for adding a new facet based on a field name in the document.
+Takes the following options:
+  * singleValue: Override the default behavior, and treat values returned from
+    `classifyingFn` as single values.
+
+### facets.addFieldFacet(field, opts={})
+Shortcut for adding a new facet based on a field name in the document. Takes
+the same opts as `addFacet`.
 
 ### facets.select(facetFieldName, values)
 Create a new facet collection whose results must match the given `values` for
