@@ -135,3 +135,20 @@ test('Selecting values', function (t) {
     'things': ['b', 'c']
   }, 'should allow selected facets to be retrieved');
 });
+
+test('Deselecting values', function (t) {
+  t.plan(2);
+
+  var facets = facet(sampleData).addFieldFacet('things', { multiValue: true });
+
+  var thingsWithB = facets.select('things', ['b']);
+
+  t.deepEqual(
+    thingsWithB.deselect('things', ['b']).getMatchedIDs().toJS(),
+    [1, 2, 3],
+    'should allow deselecting facet values');
+
+  t.deepEqual(thingsWithB.reset('things').getMatchedIDs().toJS(),
+    [1, 2, 3],
+    'should allow resetting any of a field\'s selected values');
+});
