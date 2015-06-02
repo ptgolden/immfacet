@@ -86,6 +86,15 @@ Create a new facet collection whose results must match the given `values` for
 the facet `facetFieldName`. Will throw an error if `facetFieldName` is not an
 initialized facet field.
 
+### facets.deselect(facetFieldName, values)
+The inverse of `facets.select`. If there is no applied filter that matches the
+parameters *exactly* (after values has been converted to an Immutable sequence),
+then an identical facet collection will be returned.
+
+### facets.reset(facetFieldName?)
+If passed a field name, clear any selections that have been set for that facet
+field. If not passed a field name, clear all selections for all facets.
+
 
 ## Retrieving data
 ### facets.getFacetValues(opts={})

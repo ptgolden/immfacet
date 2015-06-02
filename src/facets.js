@@ -73,11 +73,26 @@ FacetSet.prototype.select = function (facetName, values) {
   return new FacetSet(this.data, this.idField, this.facets, newFilters);
 }
 
-  newFilters = this.appliedFilters.push(Immutable.Map({
+FacetSet.prototype.deselect = function (facetName, values) {
+  var newFilters
+
+  this.appliedFilters.delete(Immutable.Map({
     facetName,
-    values,
-    ids: matchedIDs
+    values
   }));
+
+  return new FacetSet(this.data, this.idField, this.facets, newFilters);
+}
+
+FacetSet.prototype.reset = function (facetName) {
+  var newFilters
+
+  if (facetName) {
+    newFilters = this.appliedFilters
+      .filter(filter => filter.get('facetName') !== facetName);
+  } else {
+    newFilters = this.appliedFilters.clear();
+  }
 
   return new FacetSet(this.data, this.idField, this.facets, newFilters);
 }
