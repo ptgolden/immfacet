@@ -35,7 +35,8 @@ module.exports = function (dataset, idField) {
 function FacetSet(data, idField, facets, appliedFilters) {
   this.data = data;
   this.facets = facets || Immutable.Map();
-  this.appliedFilters = appliedFilters || Immutable.List();
+  this.appliedFilters = appliedFilters || Immutable.OrderedSet();
+  this._filterMatchCache = Immutable.Map();
   this.idField = idField;
 }
 
@@ -57,17 +58,20 @@ FacetSet.prototype.addFieldFacet = function (fieldArr, opts) {
 
 FacetSet.prototype.select = function (facetName, values) {
   var facet = this.facets.get(facetName)
-    , matchedIDs
     , newFilters
 
   if (!facet) throw new Error('No such facet field: ' + facetName);
+  if (!(values instanceof Immutable.Iterable)) values = Immutable.fromJS(values);
 
-  values = Immutable.Set(values);
+  values = values.toSet();
 
-  matchedIDs = facet
-    .filter((docs, facetVal) => values.contains(facetVal))
-    .toSet()
-    .flatten()
+  newFilters = this.appliedFilters.add(Immutable.Map({
+    facetName,
+    values
+  }));
+
+  return new FacetSet(this.data, this.idField, this.facets, newFilters);
+}
 
   newFilters = this.appliedFilters.push(Immutable.Map({
     facetName,
@@ -136,39 +140,54 @@ FacetSet.prototype.getSelectedFacets = function () {
   }, Immutable.Map());
 }
 
+FacetSet.prototype.getMatchedFilterResults = function (filter) {
+  if (!this._filterMatchCache.has(filter)) {
+    let facetName = filter.get('facetName')
+      , values = filter.get('values')
+      , facet = this.facets.get(facetName)
+      , matchedIDs
+
+    matchedIDs = facet
+      .filter((docs, facetVal) => values.contains(facetVal))
+      .toSet()
+      .flatten();
+
+    this._filterMatchCache = this._filterMatchCache.set(filter, matchedIDs);
+  }
+
+  return this._filterMatchCache.get(filter);
+}
+
 FacetSet.prototype.getMatchedIDs = function () {
-  return this.appliedFilters.size ?
-    this.appliedFilters.flatMap(filter => filter.get('ids')).toList() :
-    this.data.keySeq().toList()
+  return this.appliedFilters.size === 0 ?
+    this.data.keySeq().toSet() :
+    this.appliedFilters.map(filter => this.getMatchedFilterResults(filter))
+      .reduce((prev, next) => prev.intersect(next))
 }
 
 FacetSet.prototype.getMatchedDocuments = function () {
   return this.getMatchedIDs().map(id => this.data.get(id));
 }
 
-// Filter obj should be in the form { fieldName: [...possible values...]}
-function applyFilters(filterList, docIDSet) {
-  filterList.forEach(filterObj => {
-    docIDSet = docIDSet.intersect(filterObj.get('ids'));
-    if (docIDSet.size === 0) return false;
-  });
-
-  return docIDSet;
-}
 
 FacetSet.prototype._getNarrowedFacetValues = function (opts, fieldName) {
   var field = this.facets.get(fieldName)
-    , allFilters = this.appliedFilters
+    , matchIDs = null
 
-  if (opts.get('ids')) {
-    allFilters = allFilters.push(Immutable.Map({ ids: opts.get('ids') }))
+  if (this.appliedFilters.size) {
+    matchIDs = this.getMatchedIDs();
   }
 
-  if (!allFilters.size) {
+  if (opts.get('ids')) {
+    let onlyIDs = Immutable.Set(opts.get('ids'));
+    matchIDs = matchIDs ? matchIDs.intersect(onlyIDs) : onlyIDs;
+  }
+
+  if (matchIDs === null) {
     return field
   }
 
   return field
-    .map(docs => applyFilters(allFilters, docs))
+    .map(docs => docs.intersect(matchIDs))
     .filter(docs => docs.size)
 }
