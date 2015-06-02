@@ -15,7 +15,7 @@ test('Create facets', function (t) {
 
   var facets = facet(sampleData)
     .addFieldFacet(['type'])
-    .addFieldFacet('things')
+    .addFieldFacet('things', { multiValue: true })
 
   t.deepEqual(facets.getFacetValues().toJS(), {
     type: {
@@ -34,7 +34,7 @@ test('Single valued facets', function (t) {
   t.plan(1);
 
   var singleValueThingFacet = facet(sampleData)
-    .addFieldFacet('things', { singleValue: true })
+    .addFieldFacet('things')
 
   var expected = Immutable.OrderedMap({
     things: Immutable.OrderedMap([
@@ -58,7 +58,7 @@ test('Nested facets', function (t) {
     { id: 3, person: { name: 'Liz', favorite_things: ['ice']}}
   ])
 
-  var facets = facet(data).addFieldFacet(['person', 'favorite_things'])
+  var facets = facet(data).addFieldFacet(['person', 'favorite_things'], { multiValue: true })
 
   t.deepEqual(facets.getFacetValues().toJS(), {
     'person.favorite_things': {
@@ -74,7 +74,7 @@ test('Narrow facets', function (t) {
 
   var facets = facet(sampleData)
     .addFieldFacet('type')
-    .addFieldFacet('things')
+    .addFieldFacet('things', { multiValue: true })
 
   var narrowedByID = facets.getFacetValues({ ids: [1, 3] });
   t.deepEqual(narrowedByID.toJS(), {
@@ -107,7 +107,7 @@ test('Custom facet', function (t) {
 
 test('Selecting values', function (t) {
   t.plan(6);
-  var facets = facet(sampleData).addFieldFacet('things');
+  var facets = facet(sampleData).addFieldFacet('things', { multiValue: true });
 
   t.deepEqual(facets.getMatchedIDs().toJS(), [1, 2, 3]);
   t.deepEqual(facets.getMatchedDocuments().toJS(), sampleData.toJS());
@@ -131,7 +131,7 @@ test('Selecting values', function (t) {
     }
   }, 'should allow chaining which facets are selected');
 
-  t.deepEqual(thingsWithBAndC.getSelectedFacets().toJS(), {
+  t.deepEqual(thingsWithBAndC.getSelectedFacetValues().toJS(), {
     'things': ['b', 'c']
   }, 'should allow selected facets to be retrieved');
 });

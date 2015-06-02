@@ -110,9 +110,11 @@ FacetSet.prototype._makeFacetSync = function (classifyingFn, opts) {
     var result = classifyingFn(item)
       , values
 
-    if (!(result instanceof Immutable.Iterable)) result = [].concat(result);
+    if (!(result instanceof Immutable.Iterable)) {
+      result = Immutable.fromJS(result);
+    }
 
-    values = opts.singleValue ? Immutable.List.of(result) : Immutable.List(result);
+    values = opts.multiValue ? Immutable.List(result) : Immutable.List.of(result);
 
     values.forEach(facetValue => {
       if (!facet.has(facetValue)) {
@@ -144,7 +146,7 @@ FacetSet.prototype.getFacetValues = function (opts) {
     .map(field => this._getNarrowedFacetValues(query, field))
 }
 
-FacetSet.prototype.getSelectedFacets = function () {
+FacetSet.prototype.getSelectedFacetValues = function () {
   return this.appliedFilters.reduce((acc, filter) => {
     if (filter.has('facetName')) {
       let facetName = filter.get('facetName');

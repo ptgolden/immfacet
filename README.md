@@ -104,7 +104,7 @@ Items are presented as IDs. The following options can be specified
   * `fields`: Limit results to given facet fields
   * `ids`: Limit results to given item IDs
 
-### facets.getSelectedFacets()
+### facets.getSelectedFacetValues()
 Get the currently selected facet values for the facet collection (as set with
 `facets.select`).
 
