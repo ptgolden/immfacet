@@ -1,3 +1,6 @@
+# 0.6.0 - 2 July 2015
+  * Added `removeFacet` method
+
 # 0.5.0 - 2 June 2015
   * Removed `singleValue` option to `addFacet`. All values returned from a
     classifying function are now assumed to be single-valued unless the

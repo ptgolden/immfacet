@@ -30,6 +30,16 @@ test('Create facets', function (t) {
   }, 'should allow creating field facets.');
 });
 
+test('Remove facets', function (t) {
+  t.plan(1);
+
+  var facets = facet(sampleData)
+    .addFieldFacet('things')
+    .removeFacet('things')
+
+  t.deepEqual(facets.getFacetValues().toJS(), {});
+});
+
 test('Single valued facets', function (t) {
   t.plan(1);
 

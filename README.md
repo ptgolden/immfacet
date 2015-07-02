@@ -81,6 +81,9 @@ Takes the following options:
 Shortcut for adding a new facet based on a field name in the document. Takes
 the same opts as `addFacet`.
 
+### facets.removeFacet(facetName)
+Remove facet with name `facetName` if it exists.
+
 ### facets.select(facetFieldName, values)
 Create a new facet collection whose results must match the given `values` for
 the facet `facetFieldName`. Will throw an error if `facetFieldName` is not an

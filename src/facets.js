@@ -49,6 +49,11 @@ FacetSet.prototype.addFacet = function (name, reduceFn, opts) {
   return new FacetSet(this.data, this.idField, newFacets, this.appliedFilters);
 }
 
+FacetSet.prototype.removeFacet = function (name) {
+  var newFacets = this.facets.delete(name);
+  return new FacetSet(this.data, this.idField, newFacets, this.appliedFilters);
+}
+
 
 FacetSet.prototype.addFieldFacet = function (fieldArr, opts) {
   if (typeof fieldArr === 'string') fieldArr = [fieldArr];
