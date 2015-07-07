@@ -1,3 +1,6 @@
+# 0.6.1 - 7 July 2015
+  * Remove applied filters when removing a facet
+
 # 0.6.0 - 2 July 2015
   * Added `removeFacet` method
 

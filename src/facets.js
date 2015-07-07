@@ -50,8 +50,10 @@ FacetSet.prototype.addFacet = function (name, reduceFn, opts) {
 }
 
 FacetSet.prototype.removeFacet = function (name) {
-  var newFacets = this.facets.delete(name);
-  return new FacetSet(this.data, this.idField, newFacets, this.appliedFilters);
+  var newFacets = this.facets.delete(name)
+    , newFilters = this.appliedFilters.filter(filter => filter.get('facetName') !== facetName)
+
+  return new FacetSet(this.data, this.idField, newFacets, newFilters);
 }
 
 
