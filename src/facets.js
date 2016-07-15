@@ -1,217 +1,195 @@
 "use strict";
 
-var Immutable = require('immutable')
+const Immutable = require('immutable')
+    , { isIterable } = Immutable.Iterable
 
-function makeKeyedSeqByID(dataset, idField) {
+
+function makeKeyedSeqByField(data, keyField) {
   return Immutable.Map().withMutations(map => {
-    dataset.forEach(datum => {
-      let id = datum.get(idField);
+    data.forEach(datum => {
+      const value = datum.get(keyField)
 
-      if (id === undefined) {
+      if (value === undefined) {
         throw new Error(
-          'Every indexed document must have an ID field. Currently looking ' +
-          'for IDs in the property `' + idField + '`, which is not present in ' +
-          ' document:\n  ' + JSON.stringify(datum)
+          `Every indexed document must have a key field. Currently looking ` +
+          `for keys in the property "${keyField}" which is not present in ` +
+          `document:\n\n${JSON.stringify(datum)}\n`
         );
       }
 
-      if (map.has(id)) {
+      if (map.has(value)) {
         throw new Error(
-          'Multiple documents have identical ID attribute (currentlyset to `' +
-          idField + '`): ' + id
+          `Multiple documents have identical key value ` +
+          `(currently set to "${keyField}"): ${value}`
         );
       }
 
-      map.set(id, datum);
+      map.set(value, datum);
     });
   });
 }
 
-module.exports = function (dataset, idField) {
-  idField = idField || 'id';
-  return new FacetSet(makeKeyedSeqByID(dataset, idField), idField)
-}
 
-function FacetSet(data, idField, facets, appliedFilters) {
-  this.data = data;
-  this.facets = facets || Immutable.Map();
-  this.appliedFilters = appliedFilters || Immutable.OrderedSet();
-  this._filterMatchCache = Immutable.Map();
-  this.idField = idField;
-}
+const makeSelection = (name, values) =>
+  Immutable.Map({
+    name,
+    values: (isIterable(values) ? values : Immutable.fromJS(values)).toSet()
+  })
+
+const withoutName = (set, name) =>
+  set.filter(item => item.get('name') !== name)
 
 
-/*
- * These methods will return new FacetSet objects
- **/
-FacetSet.prototype.addFacet = function (name, reduceFn, opts) {
-  var newFacets = this.facets.set(name, this._makeFacetSync(reduceFn, opts));
-  return new FacetSet(this.data, this.idField, newFacets, this.appliedFilters);
-}
-
-FacetSet.prototype.removeFacet = function (name) {
-  var newFacets = this.facets.delete(name)
-    , newFilters = this.appliedFilters.filter(filter => filter.get('facetName') !== facetName)
-
-  return new FacetSet(this.data, this.idField, newFacets, newFilters);
-}
+const FacetSet = Immutable.Record({
+  data: null,
+  keyField: null,
+  facets: Immutable.Map(),
+  selections: Immutable.OrderedSet(),
+  _selectionResultCache: Immutable.Map()
+});
 
 
-FacetSet.prototype.addFieldFacet = function (fieldArr, opts) {
-  if (typeof fieldArr === 'string') fieldArr = [fieldArr];
-  return this.addFacet(fieldArr.join('.'), datum => datum.getIn(fieldArr), opts);
-}
+/* These will return new FacetSet objects */
+Object.assign(FacetSet.prototype, {
+  addFacet(name, fn, opts) {
+    return this
+      .delete('_selectionResultCache')
+      .update('facets', facets =>
+        facets.set(name, makeFacet(this, fn, opts)))
+  },
 
+  addFieldFacet(field, opts) {
+    const path = Array.isArray(field) ? field : field.split('.')
+        , accessor = d => d.getIn(path)
 
-FacetSet.prototype.select = function (facetName, values) {
-  var facet = this.facets.get(facetName)
-    , newFilters
+    return this
+      .addFacet(path.join('.'), accessor, opts)
+  },
 
-  if (!facet) throw new Error('No such facet field: ' + facetName);
-  if (!(values instanceof Immutable.Iterable)) values = Immutable.fromJS(values);
+  removeFacet(name) {
+    return this
+      .delete('_selectionResultCache')
+      .update('facets', facets =>
+        facets.delete(name))
+      .update('selections', selections =>
+        withoutName(selections, name))
+  },
 
-  values = values.toSet();
-
-  newFilters = this.appliedFilters.add(Immutable.Map({
-    facetName,
-    values
-  }));
-
-  return new FacetSet(this.data, this.idField, this.facets, newFilters);
-}
-
-FacetSet.prototype.deselect = function (facetName, values) {
-  var newFilters
-
-  this.appliedFilters.delete(Immutable.Map({
-    facetName,
-    values
-  }));
-
-  return new FacetSet(this.data, this.idField, this.facets, newFilters);
-}
-
-FacetSet.prototype.reset = function (facetName) {
-  var newFilters
-
-  if (facetName) {
-    newFilters = this.appliedFilters
-      .filter(filter => filter.get('facetName') !== facetName);
-  } else {
-    newFilters = this.appliedFilters.clear();
-  }
-
-  return new FacetSet(this.data, this.idField, this.facets, newFilters);
-}
-
-/*
- * Helper functions
- ***/
-
-FacetSet.prototype._makeFacetSync = function (classifyingFn, opts) {
-  var facet = Immutable.OrderedMap().asMutable()
-
-  opts = opts || {};
-
-  this.data.forEach(item => {
-    var result = classifyingFn(item)
-      , values
-
-    if (!(result instanceof Immutable.Iterable)) {
-      result = Immutable.fromJS(result);
+  addSelection(name, values) {
+    if (!this.facets.has(name)) {
+      throw new Error(`No such facet: ${name}`);
     }
 
-    values = opts.multiValue ? Immutable.List(result) : Immutable.List.of(result);
+    return this
+      .update('selections', selections =>
+        selections.add(makeSelection(name, values)))
+  },
 
-    values.forEach(facetValue => {
-      if (!facet.has(facetValue)) {
-        facet.set(facetValue, Immutable.Set().asMutable());
-      }
-      facet.get(facetValue).add(item.get(this.idField))
+  removeSelection(name, values) {
+    return this
+      .update('selections', selections =>
+        selections.delete(makeSelection(name, values)))
+  },
+
+  resetSelections(name) {
+    return this
+      .update('selections', selections =>
+        name ? withoutName(selections, name) : selections.clear())
+  },
+
+  facetsAfterSelections(opts={}) {
+    const { forIDs, forFields } = opts
+        , fields = forFields || this.facets.keySeq();
+
+    const selectedIDs = this.selectedIDs()
+
+    return Immutable.Map().withMutations(map => {
+      Immutable.List(fields).forEach(name => {
+        const facet = this.facets.get(name)
+
+        let matchIDs
+
+        if (this.selections.size) {
+          matchIDs = selectedIDs;
+        }
+
+        if (forIDs) {
+          matchIDs = matchIDs
+            ? matchIDs.intersect(forIDs)
+            : Immutable.Set(forIDs)
+        }
+
+        map.set(name, !matchIDs
+          ? facet
+          : facet
+              .map(ids => ids.intersect(matchIDs))
+              .filter(ids => ids.size)
+        )
+      })
+    })
+  },
+
+  facetValuesAfterSelections(opts={}) {
+    return this.facetsAfterSelections(opts)
+      .map(field => field.keySeq().toSet())
+  },
+
+  selectedIDs() {
+    return this.selections.size === 0
+      ? this.data.keySeq()
+      : this.selections
+          .map(selection => matchedIDsForSelection(this, selection))
+          .reduce((prev, next) => prev.intersect(next))
+  },
+
+  selectedItems() {
+    return this.selectedIDs().map(id => this.data.get(id))
+  }
+})
+
+
+function makeFacet(facetSet, fn, opts={}) {
+  const { multiValue } = opts
+      , facet = Immutable.Map().asMutable()
+
+  facetSet.data.forEach(item => {
+    const key = item.get(facetSet.keyField)
+
+    let result = fn(item)
+
+    result = isIterable(result) ? result : Immutable.fromJS(result)
+
+    const values = multiValue
+      ? Immutable.List(result)
+      : Immutable.List.of(result)
+
+    values.forEach(value => {
+      facet.update(
+        value,
+        Immutable.Set(),
+        set => set.asMutable().add(key)
+      )
     });
   });
 
-  facet.forEach(resultSet => resultSet.asImmutable());
-
-  return facet.asImmutable();
-}
-
-FacetSet.prototype.makeQuery = function (opts) {
-  var QueryRecord = Immutable.Record({
-    fields: this.facets.keySeq(),
-    ids: null
-  });
-  return new QueryRecord(opts);
-}
-
-FacetSet.prototype.getFacetValues = function (opts) {
-  var query = this.makeQuery(opts)
-
-  return Immutable.List(query.get('fields'))
-    .toOrderedMap()
-    .mapEntries(kv => [kv[1], kv[1]])
-    .map(field => this._getNarrowedFacetValues(query, field))
-}
-
-FacetSet.prototype.getSelectedFacetValues = function () {
-  return this.appliedFilters.reduce((acc, filter) => {
-    if (filter.has('facetName')) {
-      let facetName = filter.get('facetName');
-      if (!acc.has(facetName)) acc = acc.set(facetName, Immutable.Set());
-      acc = acc.update(facetName, existingVals => existingVals.union(filter.get('values')));
-    }
-    return acc;
-  }, Immutable.Map());
-}
-
-FacetSet.prototype.getMatchedFilterResults = function (filter) {
-  if (!this._filterMatchCache.has(filter)) {
-    let facetName = filter.get('facetName')
-      , values = filter.get('values')
-      , facet = this.facets.get(facetName)
-      , matchedIDs
-
-    matchedIDs = facet
-      .filter((docs, facetVal) => values.contains(facetVal))
-      .toSet()
-      .flatten();
-
-    this._filterMatchCache = this._filterMatchCache.set(filter, matchedIDs);
-  }
-
-  return this._filterMatchCache.get(filter);
-}
-
-FacetSet.prototype.getMatchedIDs = function () {
-  return this.appliedFilters.size === 0 ?
-    this.data.keySeq().toSet() :
-    this.appliedFilters.map(filter => this.getMatchedFilterResults(filter))
-      .reduce((prev, next) => prev.intersect(next))
-}
-
-FacetSet.prototype.getMatchedDocuments = function () {
-  return this.getMatchedIDs().map(id => this.data.get(id));
+  return facet.map(set => set.asImmutable()).asImmutable();
 }
 
 
-FacetSet.prototype._getNarrowedFacetValues = function (opts, fieldName) {
-  var field = this.facets.get(fieldName)
-    , matchIDs = null
+function matchedIDsForSelection(facetSet, selection) {
+  const name = selection.get('name')
+      , selectedValues = selection.get('values')
+      , facet = facetSet.facets.get(name)
 
-  if (this.appliedFilters.size) {
-    matchIDs = this.getMatchedIDs();
-  }
+  return facet
+    .filter((itemIDs, facetValue) => selectedValues.contains(facetValue))
+    .toSet()
+    .flatten()
+}
 
-  if (opts.get('ids')) {
-    let onlyIDs = Immutable.Set(opts.get('ids'));
-    matchIDs = matchIDs ? matchIDs.intersect(onlyIDs) : onlyIDs;
-  }
-
-  if (matchIDs === null) {
-    return field
-  }
-
-  return field
-    .map(docs => docs.intersect(matchIDs))
-    .filter(docs => docs.size)
+module.exports = function (data, keyField='id') {
+  return new FacetSet({
+    data: makeKeyedSeqByField(data, keyField),
+    keyField
+  })
 }

@@ -1,8 +1,9 @@
 "use strict";
 
-var test = require('tape')
-  , Immutable = require('immutable')
-  , facet = require('./')
+const test = require('tape')
+    , Immutable = require('immutable')
+    , facet = require('./')
+
 
 const sampleData = Immutable.fromJS([
   { id: 1, type: 'blargh', things: ['a', 'b'] },
@@ -10,104 +11,102 @@ const sampleData = Immutable.fromJS([
   { id: 3, type: 'ugh', things: [] }
 ])
 
-test('Create facets', function (t) {
-  t.plan(1);
 
-  var facets = facet(sampleData)
+const nestedData = Immutable.fromJS([
+  { id: 1, person: { name: 'Diz', favorite_things: ['lemonade']  }},
+  { id: 2, person: { name: 'Grizz', favorite_things: ['lemonade', 'lollipops']}},
+  { id: 3, person: { name: 'Liz', favorite_things: ['ice']}}
+])
+
+
+test('Facets', t => {
+  t.plan(4);
+
+  const facetSet = facet(sampleData)
+
+  const a = facetSet
     .addFieldFacet(['type'])
     .addFieldFacet('things', { multiValue: true })
 
-  t.deepEqual(facets.getFacetValues().toJS(), {
-    type: {
-      'blargh': [1],
-      'ugh': [2, 3],
-    },
-    things: {
-      'a': [1],
-      'b': [1, 2],
-      'c': [2]
-    }
-  }, 'should allow creating field facets.');
-});
+  t.ok(a.facets.equals(
+    Immutable.Map({
+      type: Immutable.Map({
+        'blargh': Immutable.Set([1]),
+        'ugh': Immutable.Set([2, 3]),
+      }),
+      things: Immutable.Map({
+        'a': Immutable.Set([1]),
+        'b': Immutable.Set([1, 2]),
+        'c': Immutable.Set([2])
+      })
+    })
+  ), 'should allow creating field facets.');
 
-test('Remove facets', function (t) {
-  t.plan(1);
 
-  var facets = facet(sampleData)
+  const b = facetSet
     .addFieldFacet('things')
     .removeFacet('things')
 
-  t.deepEqual(facets.getFacetValues().toJS(), {});
-});
+  t.ok(
+    b.facets.equals(Immutable.Map({})),
+    'should allow removing facets'
+  );
 
-test('Single valued facets', function (t) {
-  t.plan(1);
 
-  var singleValueThingFacet = facet(sampleData)
+  const c = facetSet
     .addFieldFacet('things')
 
-  var expected = Immutable.OrderedMap({
-    things: Immutable.OrderedMap([
+  t.ok(c.facets.equals(Immutable.Map({
+    things: Immutable.Map([
       [Immutable.List(['a', 'b']), Immutable.Set([1])],
       [Immutable.List(['b', 'c']), Immutable.Set([2])],
       [Immutable.List(), Immutable.Set([3])]
     ])
-  });
+  })), 'should allow creating facets on iterable facet values that should not be iterated');
 
-  t.ok(singleValueThingFacet.getFacetValues().equals(expected),
-      'should allow creating facets on iterable facet values that should not be iterated');
+  const facetSetB = facet(nestedData)
+
+  const d = facetSetB
+    .addFieldFacet(['person', 'favorite_things'], { multiValue: true })
+
+    t.ok(d.facets.equals(Immutable.Map({
+      'person.favorite_things': Immutable.Map({
+        'lemonade': Immutable.Set([1, 2]),
+        'lollipops': Immutable.Set([2]),
+        'ice': Immutable.Set([3])
+      })
+    })), 'should allow facets to be created on nested fields.');
 });
 
 
-test('Nested facets', function (t) {
-  t.plan(1);
-
-  var data = Immutable.fromJS([
-    { id: 1, person: { name: 'Diz', favorite_things: ['lemonade']  }},
-    { id: 2, person: { name: 'Grizz', favorite_things: ['lemonade', 'lollipops']}},
-    { id: 3, person: { name: 'Liz', favorite_things: ['ice']}}
-  ])
-
-  var facets = facet(data).addFieldFacet(['person', 'favorite_things'], { multiValue: true })
-
-  t.deepEqual(facets.getFacetValues().toJS(), {
-    'person.favorite_things': {
-      'lemonade': [1, 2],
-      'lollipops': [2],
-      'ice': [3]
-    }
-  }, 'should allow facets to be created on nested fields.');
-});
-
-test('Narrow facets', function (t) {
+test('Filtering by ID', t => {
   t.plan(2);
 
-  var facets = facet(sampleData)
+  const facets = facet(sampleData)
     .addFieldFacet('type')
     .addFieldFacet('things', { multiValue: true })
 
-  var narrowedByID = facets.getFacetValues({ ids: [1, 3] });
+  const narrowedByID = facets.facetsAfterSelections({ forIDs: [1, 3] });
+
   t.deepEqual(narrowedByID.toJS(), {
     type: { blargh: [1], ugh: [3] },
     things: { a: [1], b: [1] }
   }, 'should allow a query to filter documents by ID.');
 
-  var narrowedByField = facets.getFacetValues({ fields: ['type'] });
+  const narrowedByField = facets.facetsAfterSelections({ forFields: ['type'] });
   t.deepEqual(narrowedByField.toJS(), {
     type: { blargh: [1], ugh: [2, 3] },
   }, 'should allow a query to select which facet fields to include.');
 });
 
 
-test('Custom facet', function (t) {
+test('Custom facet', t => {
   t.plan(1);
 
-  var isOdd = facet(sampleData)
-    .addFacet('id_is_odd', function (val) {
-      return val.get('id') % 2 ? true : false;
-    });
+  const isOdd = facet(sampleData)
+    .addFacet('id_is_odd', val => val.get('id') % 2 ? true : false)
 
-  t.deepEqual(isOdd.getFacetValues().toJS(), {
+  t.deepEqual(isOdd.facets.toJS(), {
     'id_is_odd': {
       'true': [1, 3],
       'false': [2]
@@ -115,15 +114,18 @@ test('Custom facet', function (t) {
   }, 'should allow creating a facet based off an arbitrary function.');
 })
 
-test('Selecting values', function (t) {
+
+test('Selecting values', t => {
   t.plan(6);
-  var facets = facet(sampleData).addFieldFacet('things', { multiValue: true });
 
-  t.deepEqual(facets.getMatchedIDs().toJS(), [1, 2, 3]);
-  t.deepEqual(facets.getMatchedDocuments().toJS(), sampleData.toJS());
+  const facets = facet(sampleData)
+    .addFieldFacet('things', { multiValue: true })
 
-  var thingsWithB = facets.select('things', ['b']);
-  t.deepEqual(thingsWithB.getFacetValues().toJS(), {
+  t.deepEqual(facets.selectedIDs().toJS(), [1, 2, 3]);
+  t.deepEqual(facets.selectedItems().toJS(), sampleData.toJS());
+
+  const thingsWithB = facets.addSelection('things', ['b']);
+  t.deepEqual(thingsWithB.facetsAfterSelections().toJS(), {
     'things': {
       'a': [1],
       'b': [1, 2],
@@ -131,34 +133,36 @@ test('Selecting values', function (t) {
     }
   }, 'should allow facet values to be selected');
 
-  t.deepEqual(thingsWithB.getMatchedIDs().toJS(), [1, 2]);
+  t.deepEqual(thingsWithB.selectedIDs().toJS(), [1, 2]);
 
-  var thingsWithBAndC = thingsWithB.select('things', ['c']);
-  t.deepEqual(thingsWithBAndC.getFacetValues().toJS(), {
+  const thingsWithBAndC = thingsWithB.addSelection('things', ['c']);
+  t.deepEqual(thingsWithBAndC.facetsAfterSelections().toJS(), {
     'things': {
       'b': [2],
       'c': [2]
     }
   }, 'should allow chaining which facets are selected');
 
-  t.deepEqual(thingsWithBAndC.getSelectedFacetValues().toJS(), {
+  t.deepEqual(thingsWithBAndC.facetValuesAfterSelections().toJS(), {
     'things': ['b', 'c']
   }, 'should allow selected facets to be retrieved');
 });
 
-test('Deselecting values', function (t) {
+
+test('Deselecting values', t => {
   t.plan(2);
 
-  var facets = facet(sampleData).addFieldFacet('things', { multiValue: true });
+  const facets = facet(sampleData)
+    .addFieldFacet('things', { multiValue: true })
 
-  var thingsWithB = facets.select('things', ['b']);
+  const thingsWithB = facets.addSelection('things', ['b'])
 
   t.deepEqual(
-    thingsWithB.deselect('things', ['b']).getMatchedIDs().toJS(),
+    thingsWithB.removeSelection('things', ['b']).selectedIDs().toJS(),
     [1, 2, 3],
     'should allow deselecting facet values');
 
-  t.deepEqual(thingsWithB.reset('things').getMatchedIDs().toJS(),
+  t.deepEqual(thingsWithB.resetSelections('things').selectedIDs().toJS(),
     [1, 2, 3],
     'should allow resetting any of a field\'s selected values');
 });
