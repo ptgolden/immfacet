@@ -26,6 +26,6 @@
     "tape": "^3.0.3"
   },
   "dependencies": {
-    "immutable": "^3.7.3"
+    "immutable": "^3.8.1"
   }
 }
