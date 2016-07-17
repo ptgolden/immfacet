@@ -2,152 +2,137 @@
 
 const test = require('tape')
     , Immutable = require('immutable')
-    , facet = require('./')
+    , { FacetedClassification, FacetedQuery } = require('./')
 
 
 const sampleData = Immutable.fromJS([
-  { id: 1, type: 'blargh', things: ['a', 'b'] },
-  { id: 2, type: 'ugh', things: ['b', 'c'] },
-  { id: 3, type: 'ugh', things: [] }
+  { type: 'blargh', things: ['a', 'b'] },
+  { type: 'ugh', things: ['b', 'c'] },
+  { type: 'ugh', things: [] }
 ])
 
 
 const nestedData = Immutable.fromJS([
-  { id: 1, person: { name: 'Diz', favorite_things: ['lemonade']  }},
-  { id: 2, person: { name: 'Grizz', favorite_things: ['lemonade', 'lollipops']}},
-  { id: 3, person: { name: 'Liz', favorite_things: ['ice']}}
+  { person: { name: 'Diz', favorite_things: ['lemonade']  }},
+  { person: { name: 'Grizz', favorite_things: ['lemonade', 'lollipops']}},
+  { person: { name: 'Liz', favorite_things: ['ice']}}
 ])
 
 
-test('Facets', t => {
-  t.plan(4);
+test('Faceted classification', t => {
+  t.plan(5);
 
-  const facetSet = facet(sampleData)
+  const fc = new FacetedClassification(sampleData)
 
-  const a = facetSet
+  const fc1 = fc
     .addFieldFacet(['type'])
     .addFieldFacet('things', { multiValue: true })
 
-  t.ok(a.facets.equals(
+  t.ok(fc1.facetsByIndex().equals(
     Immutable.Map({
       type: Immutable.Map({
-        'blargh': Immutable.Set([1]),
-        'ugh': Immutable.Set([2, 3]),
+        'blargh': Immutable.Set([0]),
+        'ugh': Immutable.Set([1, 2]),
       }),
       things: Immutable.Map({
-        'a': Immutable.Set([1]),
-        'b': Immutable.Set([1, 2]),
-        'c': Immutable.Set([2])
+        'a': Immutable.Set([0]),
+        'b': Immutable.Set([0, 1]),
+        'c': Immutable.Set([1])
       })
     })
   ), 'should allow creating field facets.');
 
 
-  const b = facetSet
+  const fc2 = fc
     .addFieldFacet('things')
     .removeFacet('things')
 
   t.ok(
-    b.facets.equals(Immutable.Map({})),
+    fc2.facetsByIndex().equals(Immutable.Map({})),
     'should allow removing facets'
   );
 
 
-  const c = facetSet
+  const fc3 = fc
     .addFieldFacet('things')
 
-  t.ok(c.facets.equals(Immutable.Map({
+  t.ok(fc3.facetsByIndex().equals(Immutable.Map({
     things: Immutable.Map([
-      [Immutable.List(['a', 'b']), Immutable.Set([1])],
-      [Immutable.List(['b', 'c']), Immutable.Set([2])],
-      [Immutable.List(), Immutable.Set([3])]
+      [Immutable.List(['a', 'b']), Immutable.Set([0])],
+      [Immutable.List(['b', 'c']), Immutable.Set([1])],
+      [Immutable.List(), Immutable.Set([2])]
     ])
   })), 'should allow creating facets on iterable facet values that should not be iterated');
 
-  const facetSetB = facet(nestedData)
 
-  const d = facetSetB
+  const fc4 = new FacetedClassification(nestedData)
     .addFieldFacet(['person', 'favorite_things'], { multiValue: true })
 
-    t.ok(d.facets.equals(Immutable.Map({
+    t.ok(fc4.facetsByIndex().equals(Immutable.Map({
       'person.favorite_things': Immutable.Map({
-        'lemonade': Immutable.Set([1, 2]),
-        'lollipops': Immutable.Set([2]),
-        'ice': Immutable.Set([3])
+        'lemonade': Immutable.Set([0, 1]),
+        'lollipops': Immutable.Set([1]),
+        'ice': Immutable.Set([2])
       })
     })), 'should allow facets to be created on nested fields.');
-});
 
+  const isOdd = new FacetedClassification([1, 2, 3])
+    .addFacet('isOdd', val => val % 2 ? true : false)
 
-test('Filtering by ID', t => {
-  t.plan(2);
-
-  const facets = facet(sampleData)
-    .addFieldFacet('type')
-    .addFieldFacet('things', { multiValue: true })
-
-  const narrowedByID = facets.facetsAfterSelections({ forIDs: [1, 3] });
-
-  t.deepEqual(narrowedByID.toJS(), {
-    type: { blargh: [1], ugh: [3] },
-    things: { a: [1], b: [1] }
-  }, 'should allow a query to filter documents by ID.');
-
-  const narrowedByField = facets.facetsAfterSelections({ forFields: ['type'] });
-  t.deepEqual(narrowedByField.toJS(), {
-    type: { blargh: [1], ugh: [2, 3] },
-  }, 'should allow a query to select which facet fields to include.');
-});
-
-
-test('Custom facet', t => {
-  t.plan(1);
-
-  const isOdd = facet(sampleData)
-    .addFacet('id_is_odd', val => val.get('id') % 2 ? true : false)
-
-  t.deepEqual(isOdd.facets.toJS(), {
-    'id_is_odd': {
+  t.deepEqual(isOdd.facets().toJS(), {
+    'isOdd': {
       'true': [1, 3],
       'false': [2]
     }
   }, 'should allow creating a facet based off an arbitrary function.');
 })
 
-
-test('Selecting values', t => {
+test('Faceted query', t => {
   t.plan(6);
 
-  const facets = facet(sampleData)
+  const fc = new FacetedClassification(sampleData)
     .addFieldFacet('things', { multiValue: true })
 
-  t.deepEqual(facets.selectedIDs().toJS(), [1, 2, 3]);
-  t.deepEqual(facets.selectedItems().toJS(), sampleData.toJS());
+  const fq = new FacetedQuery(fc)
 
-  const thingsWithB = facets.addSelection('things', ['b']);
-  t.deepEqual(thingsWithB.facetsAfterSelections().toJS(), {
+  t.ok(Immutable.is(fq.selectedFacets(), fc.facets()))
+  t.ok(Immutable.is(fq.selectedItems(), sampleData))
+
+
+  const thingsWithB = fq.select({
+    name: 'things',
+    values: ['b']
+  })
+
+  t.deepEqual(thingsWithB.selectedFacetsByIndex().toJS(), {
     'things': {
-      'a': [1],
-      'b': [1, 2],
-      'c': [2]
+      'a': [0],
+      'b': [0, 1],
+      'c': [1]
     }
   }, 'should allow facet values to be selected');
 
-  t.deepEqual(thingsWithB.selectedIDs().toJS(), [1, 2]);
+  t.deepEqual(thingsWithB.selectedItemsByIndex().toJS(), [0, 1]);
 
-  const thingsWithBAndC = thingsWithB.addSelection('things', ['c']);
-  t.deepEqual(thingsWithBAndC.facetsAfterSelections().toJS(), {
+
+  const thingsWithBAndC = thingsWithB.select({
+    name: 'things',
+    values: ['c']
+  });
+
+  t.deepEqual(thingsWithBAndC.selectedFacetsByIndex().toJS(), {
     'things': {
-      'b': [2],
-      'c': [2]
+      'b': [1],
+      'c': [1]
     }
   }, 'should allow chaining which facets are selected');
 
-  t.deepEqual(thingsWithBAndC.facetValuesAfterSelections().toJS(), {
+  t.deepEqual(thingsWithBAndC.selectedFacetValues().toJS(), {
     'things': ['b', 'c']
   }, 'should allow selected facets to be retrieved');
 });
 
+/*
 
 test('Deselecting values', t => {
   t.plan(2);
@@ -166,3 +151,4 @@ test('Deselecting values', t => {
     [1, 2, 3],
     'should allow resetting any of a field\'s selected values');
 });
+*/

@@ -15,114 +15,149 @@ faceted browsing system you intend to implement.
 
 # Example
 ```js
-const immfacet = require('immfacet');
+const { FacetedClassification } = require('immfacet');
 
 const data = Immutable.fromJS([
   {
-    id: 1,
     name: 'Diz',
     instrument: 'saxophone',
     sessions: ['a', 'b', 'c']
   },
   {
-    id: 2,
     name: 'Bird',
     instrument: 'trumpet',
     sessions: ['a', 'b', 'c']
   },
   {
-    id: 3,
     name: 'Buddy',
     instrument: 'drums',
     sessions: ['c']
   },
   {
-    id: 4,
     name: 'Monk',
     instrument: 'piano',
     sessions: ['c']
   }
 ]);
 
-let facetSet = immfacet(data);
+const fc = new FacetedClassification(data);
+```
 
-// Simple field faceting
-facetSet
+## Simple faceting based on fields
+```js
+fc
   .addFieldFacet('sessions')
-  .facets
-  .toJS()
-// => { sessions: { 'a': [1, 2, 3, 4], 'b': [1, 2, 3, 4], 'c': [1, 2] } }
+  .facets()
+/* =>
+Immutable.Map({
+  sessions: {
+    'a': Immutable.Set([
+      Immutable.Map({ name: 'Diz', ... }),
+      Immutable.Map({ name: 'Bird', ... }),
+    ]),
 
+    'b': Immutable.Set([
+      Immutable.Map({ name: 'Diz', ... }),
+      Immutable.Map({ name: 'Bird', ... }),
+    ]),
 
-// Arbitrary faceting functions
+    'c': Immutable.Set([
+      Immutable.Map({ name: 'Diz', ... }),
+      Immutable.Map({ name: 'Bird', ... }),
+      Immutable.Map({ name: 'Buddy', ... }),
+      Immutable.Map({ name: 'Monk', ... }),
+    ])
+  }
+})
+*/
+```
+
+## Arbitrary faceting functions
+```js
 const windInstruments = ['saxophone', 'trumpet', 'flute', 'tuba']
 
-facetSet
+fc
   .addFacet('playsWindInstrument', person =>
-    windInstruments.indexOf(person.instrument) !== -1)
-  .facets
+    windInstruments.indexOf(person.get('instrument') !== -1)
+  .facets()
   .get('playsWindInstrument')
+/* =>
+Immutable.Map({
+  true: Immutable.Set([
+    Immutable.Map({ name: 'Diz', ... }),
+    Immutable.Map({ name: 'Bird', ... }),
+  ]),
+
+  false: Immutable.Set([
+    Immutable.Map({ name: 'Buddy', ... }),
+    Immutable.Map({ name: 'Monk', ... }),
+  ])
+})
+*/
 // => { 'true': [1, 2], 'false': [3, 4] }
 ```
 
-# API
-## const facetSet = immfacet(dataset, idField='id');
-Create a new faceted collection. Dataset must be an instance of an
+# Faceted Classification API
+## const fc = new FacetedClassification(dataset);
+Create a new faceted classification. Dataset must be an instance of an
 Immutable.Iterable, and every object must be an Immutable.Map with an `idField`
 key present.
 
 ## Creating new facet collections
-### facetSet.addFacet(facetName, classifyingFn, opts={ multiValue: false })
+### fc.addFacet(facetName, classifyingFn, opts={ multiValue: false })
 Create a new facet collection which will have a facet field with name
 `facetName` whose values will be determined by running `classifyingFn`
 against every item in the dataset. If multiValue is set to `true`, results
 will be treated as iterables, with each value in the iterable a facet value.
 
-### facetSet.addFieldFacet(field, opts={})
+### fc.addFieldFacet(field, opts={})
 Shortcut for adding a new facet based on a field name in the item. Takes
 the same opts as `addFacet`.
 
-### facetSet.removeFacet(facetName)
+### fc.removeFacet(facetName)
 Remove facet with name `facetName` if it exists.
 
-### facetSet.addSelection(facetFieldName, values)
+## Retrieving data
+### fc.facets()
+Get the values of each facet field, along with the items they are present in.
+
+
+# Faceted Query API
+## const fq = new FacetedQuery(fc)
+Create a new faceted query based off a FacetedClassification.
+
+## Creating new facet queries
+### fq.select({ facetName, values })
 Create a new facet collection whose results must match the given `values` for
 the facet `facetFieldName`. Will throw an error if `facetFieldName` is not an
 initialized facet field.
 
-### facetSet.removeSelection(facetFieldName, values)
-The inverse of `facetSet.select`. If there is no applied filter that matches the
+### fq.deselect({ facetName, values })
+The inverse of `fq.select`. If there is no applied filter that matches the
 parameters *exactly* (after values has been converted to an Immutable sequence),
 then an identical facet collection will be returned.
 
-### facetSet.resetSelections(facetFieldName?)
+### fq.reset(facetName?)
 If passed a field name, clear any selections that have been set for that facet
 field. If not passed a field name, clear all selections for all facets.
 
 
 ## Retrieving data
-### facetSet.facets
-Get the values of each facet field, along with the items they are present in.
-Items are presented as IDs.
+### fq.selectedFacets()
+Get the values of each facet field, along with the items they are present in
+after all selections have been applied. Without any selections, this will
+return the same value as `fc.facets()` for the faceted collection that `fq`
+is based on.
 
-### facetSet.facetsAfterSelection(opts={ fields: null, ids: null })
 Get the values of each facet field, along with the items they are present in,
-after all selections have been applied. Identical to `facetSet.facets` when no
-selections exist.
 
-The following options can be specified
-  * `fields`: Limit results to given facet fields
-  * `ids`: Limit results to given item IDs
-
-### facetSet.facetValuesAfterSelection(opts={ fields: null, ids: null })
+### fq.selectedFacetValues()
 Get the currently selected facet values for the facet collection (as set with
-`facetSet.select`).
+`fq.select`).
 
-### facetSet.selectedIDs()
-Get the item IDs matched by the currently applied constraints.
-
-### facetSet.selectedItems()
-Get the full items matched by the currently applied constraints.
+### fq.selectedItems()
+Get the items matched by the currently applied selections. Without any
+selections, this will return all items.
 
 
 # License
