@@ -88,7 +88,7 @@ test('Faceted classification', t => {
 })
 
 test('Faceted query', t => {
-  t.plan(6);
+  t.plan(7);
 
   const fc = new FacetedClassification(sampleData)
     .addFieldFacet('things', { multiValue: true })
@@ -130,6 +130,14 @@ test('Faceted query', t => {
   t.deepEqual(thingsWithBAndC.selectedFacetValues().toJS(), {
     'things': ['b', 'c']
   }, 'should allow selected facets to be retrieved');
+
+
+  const multipleFacetQuery = new FacetedQuery(fc.addFacet('truth', () => true))
+
+  t.deepEqual(
+    multipleFacetQuery.selectedFacets(['truth']).keySeq().toJS(),
+    ['truth'],
+    'should allow inspecting the value of only certain facets.')
 });
 
 /*

@@ -53,11 +53,12 @@ Object.assign(FacetedQuery.prototype, {
     )
   },
 
-  selectedFacetsByIndex() {
+  selectedFacetsByIndex(returnedFields) {
     const selectedItemsByIndex = this.selectedItemsByIndex()
+        , fields = returnedFields || this.facetedClassification.facetsByIndex().keySeq()
 
     return Immutable.Map().withMutations(map => {
-      this.facetedClassification.facets().keySeq().forEach(name => {
+      fields.forEach(name => {
         const facet = this.facetedClassification.facetsByIndex().get(name)
 
         map.set(name, this.selections.size === 0
@@ -70,8 +71,8 @@ Object.assign(FacetedQuery.prototype, {
     })
   },
 
-  selectedFacets() {
-    return this.selectedFacetsByIndex()
+  selectedFacets(returnedFields) {
+    return this.selectedFacetsByIndex(returnedFields)
       .map(facet => facet.map(indices => indices.map(i => this.facetedClassification.items.get(i))))
   },
 
