@@ -1,3 +1,14 @@
+# 2.2.0 - 11 April 2017
+  * Do not require `new` when creating new  FacetedClassification/FacetedQuery
+    objects.
+
+---
+
+(FIXME)
+
+---
+
+
 # 0.6.1 - 7 July 2015
   * Remove applied filters when removing a facet
 
