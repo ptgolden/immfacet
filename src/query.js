@@ -11,6 +11,10 @@ const FacetSelection = Immutable.Record({
 
 
 function FacetedQuery(facetedClassification, selections=Immutable.List()) {
+  if (!(this instanceof FacetedQuery)) {
+    return new FacetedQuery(facetedClassification, selections)
+  }
+
   if (!(facetedClassification instanceof FacetedClassification)) {
     throw new Error('Must pass a FacetedClassification object to FacetedQuery.')
   }

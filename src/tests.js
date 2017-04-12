@@ -140,6 +140,20 @@ test('Faceted query', t => {
     'should allow inspecting the value of only certain facets.')
 });
 
+test('Main functions without constructors', t => {
+  t.plan(2);
+
+  const fc = FacetedClassification(sampleData)
+    .addFieldFacet('things', { multiValue: true })
+
+  const fq = FacetedQuery(fc)
+
+  t.ok(Immutable.is(fq.selectedFacets(), fc.facets()))
+  t.ok(Immutable.is(fq.selectedItems(), sampleData))
+})
+
+
+
 /*
 
 test('Deselecting values', t => {

@@ -3,6 +3,10 @@ const Immutable = require('immutable')
 
 
 function FacetedClassification(items=Immutable.List(), _facetsByIndex=Immutable.Map()) {
+  if (!(this instanceof FacetedClassification)) {
+    return new FacetedClassification(items, _facetsByIndex);
+  }
+
   if (Array.isArray(items)) {
     items = Immutable.List(items)
   }

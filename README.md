@@ -40,7 +40,7 @@ const data = Immutable.fromJS([
   }
 ]);
 
-const fc = new FacetedClassification(data);
+const fc = FacetedClassification(data);
 ```
 
 ## Simple faceting based on fields
@@ -98,7 +98,7 @@ Immutable.Map({
 ```
 
 # Faceted Classification API
-## const fc = new FacetedClassification(dataset);
+## const fc = FacetedClassification(dataset);
 Create a new faceted classification. Dataset must be an instance of an
 Immutable.Iterable, and every object must be an Immutable.Map with an `idField`
 key present.
@@ -123,7 +123,7 @@ Get the values of each facet field, along with the items they are present in.
 
 
 # Faceted Query API
-## const fq = new FacetedQuery(fc)
+## const fq = FacetedQuery(fc)
 Create a new faceted query based off a FacetedClassification.
 
 ## Creating new facet queries
