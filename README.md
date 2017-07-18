@@ -20,12 +20,12 @@ const { FacetedClassification } = require('immfacet');
 const data = Immutable.fromJS([
   {
     name: 'Diz',
-    instrument: 'saxophone',
+    instrument: 'trumpet',
     sessions: ['a', 'b', 'c']
   },
   {
     name: 'Bird',
-    instrument: 'trumpet',
+    instrument: 'saxophone',
     sessions: ['a', 'b', 'c']
   },
   {
